@@ -4,6 +4,7 @@ import numpy as np
 import os
 import requests
 import subprocess
+from mutagen.mp3 import MP3
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -85,15 +86,12 @@ def create_text_image(text, size=(1080, 1920)):
     return overlay_path
 
 def get_audio_duration(audio_path):
-    result = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
-        capture_output=True, text=True
-    )
-    return float(result.stdout.strip())
+    # The Mutagen fix: pure Python, no ffprobe needed
+    audio = MP3(audio_path)
+    return audio.info.length
 
 def build_video():
-    print("🎬 Video Agent V3 (FFmpeg Direct): Assembling Short...")
+    print("🎬 Video Agent V3 (Mutagen + FFmpeg): Assembling Short...")
 
     topic, text = load_script()
     audio_path = "data/voiceover.mp3"
@@ -117,8 +115,7 @@ def build_video():
         "-i", overlay_path,
         "-i", audio_path,
         "-filter_complex",
-        f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[bg];"
-        f"[bg][1:v]overlay=0:0[v]",
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[bg];[bg][1:v]overlay=0:0[v]",
         "-map", "[v]",
         "-map", "2:a",
         "-t", str(duration),
