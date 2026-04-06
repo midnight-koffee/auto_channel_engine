@@ -1,6 +1,8 @@
-# Environments
-autovenv/
-__pycache__/
-
-# Secrets
 .env
+token.pickle
+__pycache__/
+autovenv/
+data/final_short.mp4
+data/background.mp4
+data/voiceover.mp3
+cloud_token.txt

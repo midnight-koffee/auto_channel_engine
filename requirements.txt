@@ -1,0 +1,10 @@
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+google-genai
+moviepy==1.0.3
+opencv-python-headless
+numpy
+requests
+python-dotenv
+edge-tts
