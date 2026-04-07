@@ -68,7 +68,7 @@ def create_text_image(text, size=(1080, 1920)):
     if current_line:
         lines.append(current_line)
 
-    # 4 channels for transparency (RGBA)
+    # 🚨 4 channels for transparency (RGBA)
     img = np.zeros((size[1], size[0], 4), dtype=np.uint8)
     
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -82,7 +82,7 @@ def create_text_image(text, size=(1080, 1920)):
         x = (size[0] - textsize[0]) // 2
         y = y_start + i * line_height
         
-        # Add 255 for full opacity on the text
+        # 🚨 Add 255 for full opacity on the text
         cv2.putText(img, line, (x+4, y+4), font, font_scale, (0,0,0,255), thickness+3)
         cv2.putText(img, line, (x, y), font, font_scale, (255,255,255,255), thickness)
 
@@ -134,7 +134,13 @@ def build_video():
 
     if result.returncode != 0:
         print(f"❌ FFmpeg error:\n{result.stderr}")
+        if os.path.exists(output_path):
+            os.remove(output_path)
         sys.exit(1)
+
+    # 🚨 Create the fail-safe flag for the Upload Agent
+    with open("data/video_ready.flag", "w") as f:
+        f.write("ready")
 
     print(f"✅ Video saved to {output_path}")
 
