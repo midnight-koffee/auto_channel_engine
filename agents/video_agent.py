@@ -4,6 +4,7 @@ import numpy as np
 import os
 import requests
 import subprocess
+import sys
 from mutagen.mp3 import MP3
 from dotenv import load_dotenv
 
@@ -67,7 +68,9 @@ def create_text_image(text, size=(1080, 1920)):
     if current_line:
         lines.append(current_line)
 
-    img = np.zeros((size[1], size[0], 3), dtype=np.uint8)
+    # 4 channels for transparency (RGBA)
+    img = np.zeros((size[1], size[0], 4), dtype=np.uint8)
+    
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 2.0
     thickness = 4
@@ -78,20 +81,21 @@ def create_text_image(text, size=(1080, 1920)):
         textsize = cv2.getTextSize(line, font, font_scale, thickness)[0]
         x = (size[0] - textsize[0]) // 2
         y = y_start + i * line_height
-        cv2.putText(img, line, (x+4, y+4), font, font_scale, (0,0,0), thickness+3)
-        cv2.putText(img, line, (x, y), font, font_scale, (255,255,255), thickness)
+        
+        # Add 255 for full opacity on the text
+        cv2.putText(img, line, (x+4, y+4), font, font_scale, (0,0,0,255), thickness+3)
+        cv2.putText(img, line, (x, y), font, font_scale, (255,255,255,255), thickness)
 
     overlay_path = "data/text_overlay.png"
     cv2.imwrite(overlay_path, img)
     return overlay_path
 
 def get_audio_duration(audio_path):
-    # The Mutagen fix: pure Python, no ffprobe needed
     audio = MP3(audio_path)
     return audio.info.length
 
 def build_video():
-    print("🎬 Video Agent V3 (Mutagen + FFmpeg): Assembling Short...")
+    print("🎬 Video Agent V3 (Mutagen + FFmpeg Transparent): Assembling Short...")
 
     topic, text = load_script()
     audio_path = "data/voiceover.mp3"
@@ -99,7 +103,7 @@ def build_video():
 
     if not os.path.exists(audio_path):
         print("❌ voiceover.mp3 missing.")
-        return
+        sys.exit(1)
 
     duration = get_audio_duration(audio_path)
     print(f"Audio duration: {duration:.1f}s")
@@ -129,8 +133,8 @@ def build_video():
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print(f"❌ FFmpeg error:\n{result.stderr[-500:]}")
-        return
+        print(f"❌ FFmpeg error:\n{result.stderr}")
+        sys.exit(1)
 
     print(f"✅ Video saved to {output_path}")
 

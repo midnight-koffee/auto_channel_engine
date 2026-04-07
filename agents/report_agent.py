@@ -4,76 +4,48 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def send_report():
+def send_discord_ping():
     print("📢 Report Agent: Compiling daily dispatch...")
-
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    
     if not webhook_url:
-        print("❌ Error: DISCORD_WEBHOOK_URL not found in .env. Skipping notification.")
+        print("❌ No DISCORD_WEBHOOK_URL found in .env. Skipping report.")
         return
 
     try:
-        # Read the upload log
-        with open("logs/upload_log.json", "r", encoding="utf-8") as f:
-            lines = f.readlines()
-            if not lines:
-                return
+        # Load the upload history
+        with open("data/upload_log.json", "r") as f:
+            history = json.load(f)
             
-            # The last line is the video we JUST uploaded
-            last_upload = json.loads(lines[-1].strip())
-            
-            # The second-to-last line is yesterday's video (if it exists)
-            yesterday_upload = json.loads(lines[-2].strip()) if len(lines) > 1 else None
+        if not history:
+            print("⚠️ Upload log is empty. Nothing to report.")
+            return
 
-    except Exception as e:
-        print(f"❌ Error reading logs: {e}")
-        return
+        # Grab the NEWEST video (the last item in the list)
+        latest_video = history[-1]
+        
+        # Build the message
+        video_id = latest_video.get('video_id', 'Unknown ID')
+        video_title = latest_video.get('title', 'Unknown Title')
+        video_url = f"https://youtube.com/shorts/{video_id}"
+        
+        message = f"🚀 **NEW VIDEO UPLOADED SUCCESSFULLY!**\n\n**Title:** {video_title}\n**Link:** {video_url}\n\n*The Autonomous Engine has completed its daily run.*"
 
-    # Find yesterday's stats in memory
-    y_title = "N/A"
-    y_views, y_likes, y_score = 0, 0, 0
-    
-    if yesterday_upload:
-        y_title = yesterday_upload.get("title", "Unknown")
-        try:
-            with open("data/channel_memory.json", "r", encoding="utf-8") as f:
-                memory = json.load(f)
-                for video in memory:
-                    if video.get("video_id") == yesterday_upload.get("video_id"):
-                        y_views = video.get("views", 0)
-                        y_likes = video.get("likes", 0)
-                        y_score = video.get("score", 0)
-                        break
-        except Exception:
-            pass
-
-    # Construct the Discord message
-    title = last_upload.get("title", "Unknown Title")
-    url = last_upload.get("url", "")
-
-    message = f"🚀 **PulsePerception Agent Finished!**\n\n"
-    message += f"🎬 **JUST UPLOADED:**\n"
-    message += f"> {title}\n"
-    message += f"> 🔗 {url}\n\n"
-    
-    if yesterday_upload:
-        message += f"📈 **YESTERDAY's PERFORMANCE:**\n"
-        message += f"> **{y_title}**\n"
-        message += f"> 👀 Views: {y_views}\n"
-        message += f"> 👍 Likes: {y_likes}\n"
-        message += f"> 🧠 Agent Score: {y_score}\n"
-
-    # Send to Discord
-    payload = {"content": message}
-    try:
-        response = requests.post(webhook_url, json=payload)
-        if response.status_code in [200, 204]:
+        # Send it to Discord
+        data = {"content": message}
+        response = requests.post(webhook_url, json=data)
+        
+        if response.status_code == 204:
             print("✅ Report successfully pinged to your phone!")
         else:
-            print(f"❌ Failed to ping Discord: HTTP {response.status_code}")
+            print(f"⚠️ Failed to send Discord ping. Status code: {response.status_code}")
+
+    except FileNotFoundError:
+        print("❌ upload_log.json not found. Cannot send report.")
     except Exception as e:
-        print(f"❌ Discord network request failed: {e}")
+        print(f"❌ Error sending Discord report: {e}")
 
 if __name__ == "__main__":
-    send_report()
+    send_discord_ping()
