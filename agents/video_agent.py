@@ -39,10 +39,11 @@ def fetch_background_video(keyword):
         data = response.json()
 
     video = data["videos"][0]
-    # Pick lowest quality to avoid download issues on server
+    
+    # 🚨 THE REAL FIX: Pick the video closest to 1080p width so FFmpeg doesn't upscale in RAM
     video_files = sorted(
         [f for f in video["video_files"] if f.get("width")],
-        key=lambda x: x.get("width", 0)
+        key=lambda x: abs(x.get("width", 0) - 1080)
     )
     video_url = video_files[0]["link"]
 
@@ -68,7 +69,7 @@ def create_text_image(text, size=(1080, 1920)):
     if current_line:
         lines.append(current_line)
 
-    # 🚨 4 channels for transparency (RGBA)
+    # 4 channels for transparency (RGBA)
     img = np.zeros((size[1], size[0], 4), dtype=np.uint8)
     
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -82,7 +83,7 @@ def create_text_image(text, size=(1080, 1920)):
         x = (size[0] - textsize[0]) // 2
         y = y_start + i * line_height
         
-        # 🚨 Add 255 for full opacity on the text
+        # Add 255 for full opacity on the text
         cv2.putText(img, line, (x+4, y+4), font, font_scale, (0,0,0,255), thickness+3)
         cv2.putText(img, line, (x, y), font, font_scale, (255,255,255,255), thickness)
 
@@ -95,7 +96,7 @@ def get_audio_duration(audio_path):
     return audio.info.length
 
 def build_video():
-    print("🎬 Video Agent V3 (Mutagen + FFmpeg Transparent): Assembling Short...")
+    print("🎬 Video Agent V3 (Production Build): Assembling Short...")
 
     topic, text = load_script()
     audio_path = "data/voiceover.mp3"
@@ -116,15 +117,22 @@ def build_video():
     cmd = [
         "ffmpeg", "-y",
         "-stream_loop", "-1", "-i", bg_path,
-        "-i", overlay_path,
+        "-loop", "1", "-i", overlay_path,   
         "-i", audio_path,
         "-filter_complex",
-        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[bg];[bg][1:v]overlay=0:0[v]",
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[bg];[bg][1:v]overlay=0:0:format=auto[v]",
         "-map", "[v]",
         "-map", "2:a",
         "-t", str(duration),
         "-c:v", "libx264",
         "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p",              
+        
+        # --- THE RAM DIET (Keeps FFmpeg alive on Railway) ---
+        "-threads", "1", 
+        "-max_muxing_queue_size", "1024",
+        # ----------------------------------------------------
+
         "-c:a", "aac",
         "-shortest",
         output_path
